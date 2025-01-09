@@ -14,6 +14,7 @@ ScrapeMaster is a Streamlit-based web scraping application designed to simplify 
 ## Prerequisites
 
 Before you begin, ensure you have the following installed:
+
 - Python 3.6 or higher
 - Pip for managing Python packages
 
@@ -37,6 +38,30 @@ source venv/bin/activate
 # Install the required packages
 pip install -r requirements.txt
 ```
+### Streamlit opt-out configuration (optative)
+
+Setting global config file at `~/.streamlit/config.toml` for Linux/macOS or `%userprofile%/.streamlit/config.toml` for Windows.
+
+- Linux/macOS:
+
+  ```bash
+  # create directory if it doesn't exists
+  mkdir -p ~/.streamlit/
+  # Setting global config file
+  cp ./.streamlit/config.toml ~/.streamlit/config.toml
+  ```
+
+- Windows:
+
+  ```powershell
+  # create directory if it doesn't exists
+  $targetDir = "$env:USERPROFILE\.streamlit\"
+  if (-not (Test-Path -Path $targetDir)) {
+     New-Item -ItemType Directory -Path $targetDir
+  }
+  # Setting global config file
+  Copy-Item -Path ".\.streamlit\config.toml" -Destination $targetDir
+  ```
 
 ## Launching the Application
 
@@ -46,6 +71,6 @@ To run ScrapeMaster, navigate to the project directory and run the following com
 streamlit run streamlit_app.py
 ```
 
-
 ## Usage
-After launching the application, open your web browser to the indicated address (typically http://localhost:8501). Use the sidebar to input the URL and fields you wish to scrape, then click the "Scrape" button to see results.
+
+After launching the application, open your web browser to the indicated address (typically <http://localhost:8501>). Use the sidebar to input the URL and fields you wish to scrape, then click the "Scrape" button to see results.
