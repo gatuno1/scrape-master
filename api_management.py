@@ -1,8 +1,11 @@
-import streamlit as st
+#!/usr/bin/env python3
+
 import os
+import streamlit as st
+
 
 def get_api_key(api_key_name):
-    # Check if the API key from the sidebar is present, else fallback to the .env file
+    """Check if the API key from the sidebar is present, else fallback to the .env file"""
     if api_key_name == 'OPENAI_API_KEY':
         return st.session_state['openai_api_key'] or os.getenv(api_key_name)
     elif api_key_name == 'GOOGLE_API_KEY':

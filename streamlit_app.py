@@ -1,28 +1,44 @@
-# streamlit_app.py
+#!/usr/bin/env python3
+
+import os
+import re
+import json
+from urllib.parse import urlparse
+from datetime import datetime
 
 import streamlit as st
 from streamlit_tags import st_tags_sidebar
 import pandas as pd
-import json
-from datetime import datetime
+
 from scraper import (
-    fetch_html_selenium,
-    save_raw_data,
-    format_data,
-    save_formatted_data,
     calculate_price,
-    html_to_markdown_with_readability,
     create_dynamic_listing_model,
     create_listings_container_model,
-    scrape_url,
-    setup_selenium,
-    generate_unique_folder_name
+    fetch_html_selenium,
+    format_data,
+    html_to_markdown_with_readability,
+    save_formatted_data,
+    save_raw_data,
+    setup_selenium
 )
 from pagination_detector import detect_pagination_elements
-import re
-from urllib.parse import urlparse
 from assets import PRICING
-import os
+
+
+def generate_unique_folder_name(source_url):
+    """Helper function to generate unique folder names based on the URL."""
+    timestamp = datetime.now().strftime('%Y_%m_%d__%H_%M_%S')
+    # Parse the URL
+    parsed_url = urlparse(source_url)
+    # Extract the domain name
+    domain = parsed_url.netloc or parsed_url.path.split('/')[0]
+    # Remove 'www.' if present
+    domain = re.sub(r'^www\.', '', domain)
+    # Remove any non-alphanumeric characters and replace with underscores
+    clean_domain = re.sub(r'\W+', '_', domain)
+
+    return f"{clean_domain}_{timestamp}"
+
 
 # Initialize Streamlit app
 st.set_page_config(page_title="Universal Web Scraper", page_icon="🦑")
@@ -30,7 +46,8 @@ st.title("Universal Web Scraper 🦑")
 
 # Initialize session state variables
 if 'scraping_state' not in st.session_state:
-    st.session_state['scraping_state'] = 'idle'  # Possible states: 'idle', 'waiting', 'scraping', 'completed'
+    # Possible states: 'idle', 'waiting', 'scraping', 'completed'
+    st.session_state['scraping_state'] = 'idle'
 if 'results' not in st.session_state:
     st.session_state['results'] = None
 if 'driver' not in st.session_state:
@@ -41,12 +58,19 @@ st.sidebar.title("Web Scraper Settings")
 
 # API Keys
 with st.sidebar.expander("API Keys", expanded=False):
-    st.session_state['openai_api_key'] = st.text_input("OpenAI API Key", type="password")
-    st.session_state['gemini_api_key'] = st.text_input("Gemini API Key", type="password")
-    st.session_state['groq_api_key'] = st.text_input("Groq API Key", type="password")
+    st.session_state['openai_api_key'] = st.text_input(
+        "OpenAI API Key", type="password")
+    st.session_state['gemini_api_key'] = st.text_input(
+        "Gemini API Key", type="password")
+    st.session_state['groq_api_key'] = st.text_input(
+        "Groq API Key", type="password")
 
 # Model selection
-model_selection = st.sidebar.selectbox("Select Model", options=list(PRICING.keys()), index=0)
+model_selection = st.sidebar.selectbox(
+    "Select Model",
+    options=list(PRICING.keys()),
+    index=0
+)
 
 # URL input
 url_input = st.sidebar.text_input("Enter URL(s) separated by whitespace")
@@ -87,12 +111,11 @@ else:
     # Multiple URLs entered; disable Pagination and Attended Mode
     use_pagination = False
     attended_mode = False
-    pagination_details = ""  
-    st.sidebar.info("Pagination and Attended Mode are disabled when multiple URLs are entered.")
+    pagination_details = ""
+    st.sidebar.info(
+        "Pagination and Attended Mode are disabled when multiple URLs are entered.")
 
 st.sidebar.markdown("---")
-
-
 
 # Main action button
 if st.sidebar.button("LAUNCH SCRAPER", type="primary"):
@@ -120,7 +143,8 @@ if st.session_state['scraping_state'] == 'waiting':
         st.write("Navigate to the page you want to scrape.")
         st.write("When ready, click the 'Resume Scraping' button.")
     else:
-        st.write("Browser window is already open. Perform your actions and click 'Resume Scraping'.")
+        st.write(
+            "Browser window is already open. Perform your actions and click 'Resume Scraping'.")
 
     if st.button("Resume Scraping"):
         st.session_state['scraping_state'] = 'scraping'
@@ -129,7 +153,10 @@ if st.session_state['scraping_state'] == 'waiting':
 elif st.session_state['scraping_state'] == 'scraping':
     with st.spinner('Scraping in progress...'):
         # Perform scraping
-        output_folder = os.path.join('output', generate_unique_folder_name(st.session_state['urls'][0]))
+        output_folder = os.path.join(
+            'output',
+            generate_unique_folder_name(st.session_state['urls'][0])
+        )
         os.makedirs(output_folder, exist_ok=True)
 
         total_input_tokens = 0
@@ -142,23 +169,31 @@ elif st.session_state['scraping_state'] == 'scraping':
         if st.session_state['attended_mode'] and driver is not None:
             # Attended mode: scrape the current page without navigating
             # Fetch HTML from the current page
-            raw_html = fetch_html_selenium(st.session_state['urls'][0], attended_mode=True, driver=driver)
+            raw_html = fetch_html_selenium(
+                st.session_state['urls'][0],
+                attended_mode=True,
+                driver=driver
+            )
             markdown = html_to_markdown_with_readability(raw_html)
-            save_raw_data(markdown, output_folder, f'rawData_1.md')
+            save_raw_data(markdown, output_folder, 'rawData_1.md')
 
-            current_url = driver.current_url  # Use the current URL for logging and saving purposes
+            # Use the current URL for logging and saving purposes
+            current_url = driver.current_url
 
             # Detect pagination if enabled
             if st.session_state['use_pagination']:
                 pagination_data, token_counts, pagination_price = detect_pagination_elements(
-                    current_url, st.session_state['pagination_details'], st.session_state['model_selection'], markdown
+                    current_url,
+                    st.session_state['pagination_details'],
+                    st.session_state['model_selection'],
+                    markdown
                 )
                 # Check if pagination_data is a dict or a model with 'page_urls' attribute
                 if isinstance(pagination_data, dict):
                     page_urls = pagination_data.get("page_urls", [])
                 else:
                     page_urls = pagination_data.page_urls
-                
+
                 pagination_info = {
                     "page_urls": page_urls,
                     "token_counts": token_counts,
@@ -167,18 +202,31 @@ elif st.session_state['scraping_state'] == 'scraping':
             # Scrape data if fields are specified
             if show_tags:
                 # Create dynamic models
-                DynamicListingModel = create_dynamic_listing_model(st.session_state['fields'])
-                DynamicListingsContainer = create_listings_container_model(DynamicListingModel)
+                DynamicListingModel = create_dynamic_listing_model(
+                    st.session_state['fields'])
+                DynamicListingsContainer = create_listings_container_model(
+                    DynamicListingModel)
                 # Format data
                 formatted_data, token_counts = format_data(
-                    markdown, DynamicListingsContainer, DynamicListingModel, st.session_state['model_selection']
+                    markdown,
+                    DynamicListingsContainer,
+                    DynamicListingModel,
+                    st.session_state['model_selection']
                 )
-                input_tokens, output_tokens, cost = calculate_price(token_counts, st.session_state['model_selection'])
+                input_tokens, output_tokens, cost = calculate_price(
+                    token_counts,
+                    st.session_state['model_selection']
+                )
                 total_input_tokens += input_tokens
                 total_output_tokens += output_tokens
                 total_cost += cost
                 # Save formatted data
-                df = save_formatted_data(formatted_data, output_folder, f'sorted_data_1.json', f'sorted_data_1.xlsx')
+                df = save_formatted_data(
+                    formatted_data,
+                    output_folder,
+                    'sorted_data_1.json',
+                    'sorted_data_1.xlsx'
+                )
                 all_data.append(formatted_data)
         else:
             # Non-attended mode or driver not available
@@ -186,19 +234,26 @@ elif st.session_state['scraping_state'] == 'scraping':
                 # Fetch HTML
                 raw_html = fetch_html_selenium(url, attended_mode=False)
                 markdown = html_to_markdown_with_readability(raw_html)
-                save_raw_data(markdown, output_folder, f'rawData_{i}.md')
+                save_raw_data(
+                    markdown,
+                    output_folder,
+                    f'rawData_{i}.md'
+                )
 
                 # Detect pagination if enabled and only for the first URL
                 if st.session_state['use_pagination'] and i == 1:
                     pagination_data, token_counts, pagination_price = detect_pagination_elements(
-                        url, st.session_state['pagination_details'], st.session_state['model_selection'], markdown
+                        url,
+                        st.session_state['pagination_details'],
+                        st.session_state['model_selection'],
+                        markdown
                     )
                     # Check if pagination_data is a dict or a model with 'page_urls' attribute
                     if isinstance(pagination_data, dict):
                         page_urls = pagination_data.get("page_urls", [])
                     else:
                         page_urls = pagination_data.page_urls
-                    
+
                     pagination_info = {
                         "page_urls": page_urls,
                         "token_counts": token_counts,
@@ -207,18 +262,31 @@ elif st.session_state['scraping_state'] == 'scraping':
                 # Scrape data if fields are specified
                 if show_tags:
                     # Create dynamic models
-                    DynamicListingModel = create_dynamic_listing_model(st.session_state['fields'])
-                    DynamicListingsContainer = create_listings_container_model(DynamicListingModel)
+                    DynamicListingModel = create_dynamic_listing_model(
+                        st.session_state['fields'])
+                    DynamicListingsContainer = create_listings_container_model(
+                        DynamicListingModel)
                     # Format data
                     formatted_data, token_counts = format_data(
-                        markdown, DynamicListingsContainer, DynamicListingModel, st.session_state['model_selection']
+                        markdown,
+                        DynamicListingsContainer,
+                        DynamicListingModel,
+                        st.session_state['model_selection']
                     )
-                    input_tokens, output_tokens, cost = calculate_price(token_counts, st.session_state['model_selection'])
+                    input_tokens, output_tokens, cost = calculate_price(
+                        token_counts,
+                        st.session_state['model_selection']
+                    )
                     total_input_tokens += input_tokens
                     total_output_tokens += output_tokens
                     total_cost += cost
                     # Save formatted data
-                    df = save_formatted_data(formatted_data, output_folder, f'sorted_data_{i}.json', f'sorted_data_{i}.xlsx')
+                    df = save_formatted_data(
+                        formatted_data,
+                        output_folder,
+                        f'sorted_data_{i}.json',
+                        f'sorted_data_{i}.xlsx'
+                    )
                     all_data.append(formatted_data)
 
         # Clean up driver if used
@@ -236,6 +304,7 @@ elif st.session_state['scraping_state'] == 'scraping':
             'pagination_info': pagination_info
         }
         st.session_state['scraping_state'] = 'completed'
+
 # Display results
 if st.session_state['scraping_state'] == 'completed' and st.session_state['results']:
     results = st.session_state['results']
@@ -251,7 +320,7 @@ if st.session_state['scraping_state'] == 'completed' and st.session_state['resul
         st.subheader("Scraping Results")
         for i, data in enumerate(all_data, start=1):
             st.write(f"Data from URL {i}:")
-            
+
             # Handle string data (convert to dict if it's JSON)
             if isinstance(data, str):
                 try:
@@ -259,7 +328,7 @@ if st.session_state['scraping_state'] == 'completed' and st.session_state['resul
                 except json.JSONDecodeError:
                     st.error(f"Failed to parse data as JSON for URL {i}")
                     continue
-            
+
             if isinstance(data, dict):
                 if 'listings' in data and isinstance(data['listings'], list):
                     df = pd.DataFrame(data['listings'])
@@ -282,13 +351,17 @@ if st.session_state['scraping_state'] == 'completed' and st.session_state['resul
         st.sidebar.markdown("#### Token Usage")
         st.sidebar.markdown(f"*Input Tokens:* {total_input_tokens}")
         st.sidebar.markdown(f"*Output Tokens:* {total_output_tokens}")
-        st.sidebar.markdown(f"**Total Cost:** :green-background[**${total_cost:.4f}**]")
+        st.sidebar.markdown(
+            f"**Total Cost:** :green-background[**${total_cost:.4f}**]")
 
         # Download options
         st.subheader("Download Extracted Data")
         col1, col2 = st.columns(2)
         with col1:
-            json_data = json.dumps(all_data, default=lambda o: o.dict() if hasattr(o, 'dict') else str(o), indent=4)
+            json_data = json.dumps(
+                all_data,
+                default=lambda o: o.dict() if hasattr(o, 'dict') else str(o), indent=4
+            )
             st.download_button(
                 "Download JSON",
                 data=json_data,
@@ -306,10 +379,12 @@ if st.session_state['scraping_state'] == 'completed' and st.session_state['resul
                 if isinstance(data, dict) and 'listings' in data:
                     all_listings.extend(data['listings'])
                 elif hasattr(data, 'listings'):
-                    all_listings.extend([item.dict() for item in data.listings])
+                    all_listings.extend(
+                        [item.dict() for item in data.listings]
+                    )
                 else:
                     all_listings.append(data)
-            
+
             combined_df = pd.DataFrame(all_listings)
             st.download_button(
                 "Download CSV",
@@ -327,32 +402,48 @@ if st.session_state['scraping_state'] == 'completed' and st.session_state['resul
         # Display token usage and cost using metrics
         st.sidebar.markdown("---")
         st.sidebar.markdown("### Pagination Details")
-        st.sidebar.markdown(f"**Number of Page URLs:** {len(pagination_info['page_urls'])}")
+        st.sidebar.markdown(
+            f"**Number of Page URLs:** {len(pagination_info['page_urls'])}")
         st.sidebar.markdown("#### Pagination Token Usage")
-        st.sidebar.markdown(f"*Input Tokens:* {pagination_info['token_counts']['input_tokens']}")
-        st.sidebar.markdown(f"*Output Tokens:* {pagination_info['token_counts']['output_tokens']}")
-        st.sidebar.markdown(f"**Pagination Cost:** :blue-background[**${pagination_info['price']:.4f}**]")
-
+        st.sidebar.markdown(
+            f"*Input Tokens:* {pagination_info['token_counts']['input_tokens']}")
+        st.sidebar.markdown(
+            f"*Output Tokens:* {pagination_info['token_counts']['output_tokens']}")
+        st.sidebar.markdown(
+            f"**Pagination Cost:** :blue-background[**${pagination_info['price']:.4f}**]")
 
         # Display page URLs in a table
         st.write("**Page URLs:**")
         # Make URLs clickable
-        pagination_df = pd.DataFrame(pagination_info["page_urls"], columns=["Page URLs"])
-        
+        pagination_df = pd.DataFrame(
+            pagination_info["page_urls"],
+            columns=["Page URLs"]
+        )
+
         st.dataframe(
             pagination_df,
             column_config={
                 "Page URLs": st.column_config.LinkColumn("Page URLs")
-            },use_container_width=True
+            },
+            use_container_width=True
         )
 
         # Download pagination URLs
         st.subheader("Download Pagination URLs")
         col1, col2 = st.columns(2)
         with col1:
-            st.download_button("Download Pagination CSV",data=pagination_df.to_csv(index=False),file_name="pagination_urls.csv")
+            st.download_button(
+                "Download Pagination CSV",
+                data=pagination_df.to_csv(index=False),
+                file_name="pagination_urls.csv"
+            )
         with col2:
-            st.download_button("Download Pagination JSON",data=json.dumps(pagination_info['page_urls'], indent=4),file_name="pagination_urls.json")
+            st.download_button(
+                "Download Pagination JSON",
+                data=json.dumps(pagination_info['page_urls'], indent=4),
+                file_name="pagination_urls.json"
+            )
+
     # Reset scraping state
     if st.sidebar.button("Clear Results"):
         st.session_state['scraping_state'] = 'idle'
@@ -361,27 +452,13 @@ if st.session_state['scraping_state'] == 'completed' and st.session_state['resul
    # If both scraping and pagination were performed, show totals under the pagination table
     if show_tags and pagination_info:
         st.markdown("---")
-        total_input_tokens_combined = total_input_tokens + pagination_info['token_counts']['input_tokens']
-        total_output_tokens_combined = total_output_tokens + pagination_info['token_counts']['output_tokens']
+        total_input_tokens_combined = total_input_tokens + \
+            pagination_info['token_counts']['input_tokens']
+        total_output_tokens_combined = total_output_tokens + \
+            pagination_info['token_counts']['output_tokens']
         total_combined_cost = total_cost + pagination_info['price']
         st.markdown("### Total Counts and Cost (Including Pagination)")
         st.markdown(f"**Total Input Tokens:** {total_input_tokens_combined}")
         st.markdown(f"**Total Output Tokens:** {total_output_tokens_combined}")
-        st.markdown(f"**Total Combined Cost:** :rainbow-background[**${total_combined_cost:.4f}**]")
-# Helper function to generate unique folder names
-def generate_unique_folder_name(url):
-    timestamp = datetime.now().strftime('%Y_%m_%d__%H_%M_%S')
-    
-    # Parse the URL
-    parsed_url = urlparse(url)
-    
-    # Extract the domain name
-    domain = parsed_url.netloc or parsed_url.path.split('/')[0]
-    
-    # Remove 'www.' if present
-    domain = re.sub(r'^www\.', '', domain)
-    
-    # Remove any non-alphanumeric characters and replace with underscores
-    clean_domain = re.sub(r'\W+', '_', domain)
-    
-    return f"{clean_domain}_{timestamp}"
+        st.markdown(
+            f"**Total Combined Cost:** :rainbow-background[**${total_combined_cost:.4f}**]")

@@ -1,31 +1,41 @@
-# pagination_detector.py
+#!/usr/bin/env python3
 
-import os
+import logging
 import json
 from typing import List, Dict, Tuple, Union
-from pydantic import BaseModel, Field, ValidationError
-
-import tiktoken
 from dotenv import load_dotenv
 
+from pydantic import BaseModel, Field
+
+import openai
 from openai import OpenAI
+import tiktoken
+
 import google.generativeai as genai
 from groq import Groq
 
-
 from api_management import get_api_key
-from assets import PROMPT_PAGINATION, PRICING, LLAMA_MODEL_FULLNAME, GROQ_LLAMA_MODEL_FULLNAME
+from assets import (
+    GROQ_LLAMA_MODEL_FULLNAME,
+    LLAMA_MODEL_FULLNAME,
+    PRICING,
+    PROMPT_PAGINATION
+)
 
 load_dotenv()
-import logging
+
 
 class PaginationData(BaseModel):
-    page_urls: List[str] = Field(default_factory=list, description="List of pagination URLs, including 'Next' button URL if present")
+    page_urls: List[str] = Field(
+        default_factory=list,
+        description="List of pagination URLs, including 'Next' button URL if present"
+    )
+
 
 def calculate_pagination_price(token_counts: Dict[str, int], model: str) -> float:
     """
     Calculate the price for pagination based on token counts and the selected model.
-    
+
     Args:
     token_counts (Dict[str, int]): A dictionary containing 'input_tokens' and 'output_tokens'.
     model (str): The name of the selected model.
@@ -35,29 +45,36 @@ def calculate_pagination_price(token_counts: Dict[str, int], model: str) -> floa
     """
     input_tokens = token_counts['input_tokens']
     output_tokens = token_counts['output_tokens']
-    
+
     input_price = input_tokens * PRICING[model]['input']
     output_price = output_tokens * PRICING[model]['output']
-    
+
     return input_price + output_price
 
+
 def detect_pagination_elements(url: str, indications: str, selected_model: str, markdown_content: str) -> Tuple[Union[PaginationData, Dict, str], Dict, float]:
+    """
+    Uses AI models to analyze markdown content and extract pagination elements.
+
+    Args:
+        selected_model (str): The name of the OpenAI model to use.
+        markdown_content (str): The markdown content to analyze.
+
+    Returns:
+        Tuple[PaginationData, Dict, float]:
+        Parsed pagination data, token counts, and pagination price.
+    """
     try:
-        """
-        Uses AI models to analyze markdown content and extract pagination elements.
-
-        Args:
-            selected_model (str): The name of the OpenAI model to use.
-            markdown_content (str): The markdown content to analyze.
-
-        Returns:
-            Tuple[PaginationData, Dict, float]: Parsed pagination data, token counts, and pagination price.
-        """ 
-        prompt_pagination = PROMPT_PAGINATION+"\n The url of the page to extract pagination from   "+url+"if the urls that you find are not complete combine them intelligently in a way that fit the pattern **ALWAYS GIVE A FULL URL**"
+        prompt_pagination = PROMPT_PAGINATION + \
+            "\n The url of the page to extract pagination from   " + url + \
+            "if the urls that you find are not complete combine them intelligently in a way that fit the pattern **ALWAYS GIVE A FULL URL**"
         if indications != "":
-            prompt_pagination +=PROMPT_PAGINATION+"\n\n these are the users indications that, pay special attention to them: "+indications+"\n\n below are the markdowns of the website: \n\n"
+            prompt_pagination += PROMPT_PAGINATION + \
+                "\n\n these are the users indications that, pay special attention to them: " + \
+                indications + "\n\n Below are the markdowns of the website: \n\n"
         else:
-            prompt_pagination +=PROMPT_PAGINATION+"\n There are no user indications in this case just apply the logic described. \n\n below are the markdowns of the website: \n\n"
+            prompt_pagination += PROMPT_PAGINATION + \
+                "\n There are no user indications in this case just apply the logic described. \n\n Below are the markdowns of the website: \n\n"
 
         if selected_model in ["gpt-4o-mini", "gpt-4o-2024-08-06"]:
             # Use OpenAI API
@@ -77,14 +94,18 @@ def detect_pagination_elements(url: str, indications: str, selected_model: str, 
             # Calculate tokens using tiktoken
             encoder = tiktoken.encoding_for_model(selected_model)
             input_token_count = len(encoder.encode(markdown_content))
-            output_token_count = len(encoder.encode(json.dumps(parsed_response.dict())))
+            output_token_count = len(encoder.encode(
+                json.dumps(parsed_response.dict())))
             token_counts = {
                 "input_tokens": input_token_count,
                 "output_tokens": output_token_count
             }
 
             # Calculate the price
-            pagination_price = calculate_pagination_price(token_counts, selected_model)
+            pagination_price = calculate_pagination_price(
+                token_counts,
+                selected_model
+            )
 
             return parsed_response, token_counts, pagination_price
 
@@ -110,11 +131,13 @@ def detect_pagination_elements(url: str, indications: str, selected_model: str, 
             }
             # Get the result
             response_content = completion.text
-            
+
             # Log the response content and its type
-            logging.info(f"Gemini Flash response type: {type(response_content)}")
-            logging.info(f"Gemini Flash response content: {response_content}")
-            
+            logging.info("Gemini Flash response type: %s",
+                         type(response_content))
+            logging.info("Gemini Flash response content: %s",
+                         response_content)
+
             # Try to parse the response as JSON
             try:
                 parsed_data = json.loads(response_content)
@@ -127,7 +150,10 @@ def detect_pagination_elements(url: str, indications: str, selected_model: str, 
                 pagination_data = PaginationData(page_urls=[])
 
             # Calculate the price
-            pagination_price = calculate_pagination_price(token_counts, selected_model)
+            pagination_price = calculate_pagination_price(
+                token_counts,
+                selected_model
+            )
 
             return pagination_data, token_counts, pagination_price
 
@@ -144,18 +170,23 @@ def detect_pagination_elements(url: str, indications: str, selected_model: str, 
                 temperature=0.7,
             )
             response_content = response['choices'][0]['message']['content'].strip()
-            # Try to parse the JSON
             try:
                 pagination_data = json.loads(response_content)
             except json.JSONDecodeError:
-                pagination_data = {"next_buttons": [], "page_urls": []}
+                pagination_data = {
+                    "next_buttons": [],
+                    "page_urls": []
+                }
             # Token counts
             token_counts = {
                 "input_tokens": response['usage']['prompt_tokens'],
                 "output_tokens": response['usage']['completion_tokens']
             }
             # Calculate the price
-            pagination_price = calculate_pagination_price(token_counts, selected_model)
+            pagination_price = calculate_pagination_price(
+                token_counts,
+                selected_model
+            )
 
             return pagination_data, token_counts, pagination_price
 
@@ -181,7 +212,10 @@ def detect_pagination_elements(url: str, indications: str, selected_model: str, 
                 "output_tokens": response.usage.completion_tokens
             }
             # Calculate the price
-            pagination_price = calculate_pagination_price(token_counts, selected_model)
+            pagination_price = calculate_pagination_price(
+                token_counts,
+                selected_model
+            )
 
             '''# Ensure the pagination_data is a dictionary
             if isinstance(pagination_data, PaginationData):
@@ -195,27 +229,27 @@ def detect_pagination_elements(url: str, indications: str, selected_model: str, 
             raise ValueError(f"Unsupported model: {selected_model}")
 
     except Exception as e:
-        logging.error(f"An error occurred in detect_pagination_elements: {e}")
+        logging.error("An error occurred in detect_pagination_elements: %s", e)
         # Return default values if an error occurs
         return PaginationData(page_urls=[]), {"input_tokens": 0, "output_tokens": 0}, 0.0
 
 
 if __name__ == "__main__":
 
-    url="""https://scrapeme.live/shop/"""
+    url = """https://scrapeme.live/shop/"""
     # Define the path to your markdown file
     markdown_file_path = r"C:\Users\redam\Documents\VSCode\ScrapeMaster2.0\output\scrapeme_live_2024_09_24__00_33_20\rawData_1.md"
-    
+
     # Read the markdown content from the file
     with open(markdown_file_path, 'r', encoding='utf-8') as f:
         markdown_content = f.read()
-    
+
     # Specify the model you want to use
     selected_model = 'gemini-1.5-flash'  # Replace with your desired model
 
     # Call the detect_pagination_elements function
-    pagination_data, token_counts, pagination_price = detect_pagination_elements(url,"",selected_model, markdown_content)
-    
+    pagination_data, token_counts, pagination_price = detect_pagination_elements(
+        url, "", selected_model, markdown_content)
+
     print("Page URLs:", pagination_data.page_urls)
     print("Pagination Price:", pagination_price)
-
