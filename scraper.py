@@ -35,6 +35,7 @@ from assets import (
     USER_MESSAGE
 )
 
+# Load environment variables, expecting API Keys
 load_dotenv()
 
 
@@ -186,9 +187,8 @@ def generate_system_message(listing_model: BaseModel) -> str:
     from the given text and convert it into a pure JSON format. The JSON should contain only the structured data extracted from the text,
     with no additional commentary, explanations, or extraneous information.
     You could encounter cases where you can't find the data of the fields you have to extract or the data will be in a foreign language.
-    Please process the following text and provide the output in pure JSON format with no words before or after the JSON:
-    Please ensure the output strictly follows this schema:
-
+    Please process the following text and provide the output in pure JSON format with no words before or after the JSON.
+    Ensure the output strictly follows this schema:
     {{
         "listings": [
             {{
@@ -251,7 +251,6 @@ def format_data(data, dynamic_listings_container, dynamic_listing_model, selecte
 
         # Dynamically generate the system message based on the schema
         sys_message = generate_system_message(dynamic_listing_model)
-        # print(SYSTEM_MESSAGE)
         # Point to the local server
         client = OpenAI(
             base_url="http://localhost:1234/v1",
@@ -265,8 +264,7 @@ def format_data(data, dynamic_listings_container, dynamic_listing_model, selecte
                 {"role": "system", "content": sys_message},
                 {"role": "user", "content": USER_MESSAGE + data}
             ],
-            temperature=0.7,
-
+            temperature=0.7
         )
 
         # Extract the content from the response
@@ -358,6 +356,7 @@ def save_formatted_data(formatted_data, output_folder: str, json_file_name: str,
         print(f"Formatted data saved to Excel at {excel_output_path}")
 
         return df
+
     except Exception as e:
         print(f"Error creating DataFrame or saving Excel: {str(e)}")
         return None

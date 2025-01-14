@@ -38,9 +38,10 @@ source venv/bin/activate
 # Install the required packages
 pip install -r requirements.txt
 ```
+
 ### Streamlit opt-out configuration (optative)
 
-Setting global config file at `~/.streamlit/config.toml` for Linux/macOS or `%userprofile%/.streamlit/config.toml` for Windows.
+Setting global config file:
 
 - Linux/macOS:
 
@@ -74,3 +75,8 @@ streamlit run streamlit_app.py
 ## Usage
 
 After launching the application, open your web browser to the indicated address (typically <http://localhost:8501>). Use the sidebar to input the URL and fields you wish to scrape, then click the "Scrape" button to see results.
+
+## References
+
+- <https://www.youtube.com/watch?v=YCicort0TrQ&ab_channel=RedaMarzouk>
+- <https://www.youtube.com/watch?v=ncnm3P2Tl28&ab_channel=RedaMarzouk>
