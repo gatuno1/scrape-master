@@ -22,6 +22,7 @@ from assets import (
     PROMPT_PAGINATION
 )
 
+# Load environment variables, expecting API Keys
 load_dotenv()
 
 
@@ -66,15 +67,13 @@ def detect_pagination_elements(url: str, indications: str, selected_model: str, 
     """
     try:
         prompt_pagination = PROMPT_PAGINATION + \
-            "\n The url of the page to extract pagination from   " + url + \
-            "if the urls that you find are not complete combine them intelligently in a way that fit the pattern **ALWAYS GIVE A FULL URL**"
+            "\nThe url of the page to extract pagination from: '" + url + \
+            "'\nIf the urls that you find are not complete, combine them intelligently in a way that fit the pattern. **ALWAYS GIVE A FULL URL**"
         if indications != "":
-            prompt_pagination += PROMPT_PAGINATION + \
-                "\n\n these are the users indications that, pay special attention to them: " + \
-                indications + "\n\n Below are the markdowns of the website: \n\n"
+            prompt_pagination += "\n\nThese are the users indications that, pay special attention to them: " + \
+                indications + "\n\nBelow are the markdowns of the website:\n\n"
         else:
-            prompt_pagination += PROMPT_PAGINATION + \
-                "\n There are no user indications in this case just apply the logic described. \n\n Below are the markdowns of the website: \n\n"
+            prompt_pagination += "\nThere are no user indications in this case just apply the logic described.\n\nBelow are the markdowns of the website:\n\n"
 
         if selected_model in ["gpt-4o-mini", "gpt-4o-2024-08-06"]:
             # Use OpenAI API
