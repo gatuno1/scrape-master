@@ -7,7 +7,6 @@ from dotenv import load_dotenv
 
 from pydantic import BaseModel, Field
 
-import openai
 from openai import OpenAI
 import tiktoken
 
@@ -158,15 +157,18 @@ def detect_pagination_elements(url: str, indications: str, selected_model: str, 
 
         elif selected_model == "Llama3.1 8B":
             # Use Llama model via OpenAI API pointing to local server
-            openai.api_key = "lm-studio"
-            openai.api_base = "http://localhost:1234/v1"
-            response = openai.ChatCompletion.create(
+            client = OpenAI(
+                api_key="lm-studio",
+                base_url="http://localhost:1234/v1"
+            )
+
+            response = client.chat.completions.create(
                 model=LLAMA_MODEL_FULLNAME,
                 messages=[
                     {"role": "system", "content": prompt_pagination},
                     {"role": "user", "content": markdown_content},
                 ],
-                temperature=0.7,
+                temperature=0.7
             )
             response_content = response['choices'][0]['message']['content'].strip()
             try:
