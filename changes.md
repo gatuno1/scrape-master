@@ -2,7 +2,14 @@
 
 ## Latest changes
 
+Updated change log
+
+## Commit 1fd6cd9 - Jan 20, 2025
+
+Add change log & app debug config
+
 - Added `changes.md` file: to maintain changes log.
+- Added streamlit app debug configuration for VSCode.
 
 ## Commit d4e9ec9 - Jan 15, 2025
 
